@@ -9,7 +9,6 @@ static uint16_t local_port;
  */
 uint8_t socket(SOCKET s, uint8_t protocol, uint16_t port, uint8_t flag)
 {
-  uint8_t ret;
   if ((protocol == SnMR::TCP) || (protocol == SnMR::UDP) || (protocol == SnMR::IPRAW) || (protocol == SnMR::MACRAW) || (protocol == SnMR::PPPOE))
   {
     close(s);
@@ -152,7 +151,7 @@ uint16_t recv(SOCKET s, uint8_t *buf, uint16_t len)
   {
     // No data available.
     uint8_t status = W5100.readSnSR(s);
-    if ( s == SnSR::LISTEN || s == SnSR::CLOSED || s == SnSR::CLOSE_WAIT )
+    if ( status == SnSR::LISTEN || status == SnSR::CLOSED || status == SnSR::CLOSE_WAIT )
     {
       // The remote end has closed its side of the connection, so this is the eof state
       ret = 0;

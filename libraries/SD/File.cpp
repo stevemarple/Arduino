@@ -18,7 +18,7 @@
    uint8_t nfilecount=0;
 */
 
-File::File(SdFile f, char *n) {
+File::File(SdFile f, const char *n) {
   // oh man you are kidding me, new() doesnt exist? Ok we do it by hand!
   _file = (SdFile *)malloc(sizeof(SdFile)); 
   if (_file) {
@@ -58,19 +58,23 @@ boolean File::isDirectory(void) {
 }
 
 
-void File::write(uint8_t val) {
-  if (_file)
-    _file->write(val);
+size_t File::write(uint8_t val) {
+  return write(&val, 1);
 }
 
-void File::write(const char *str) {
-  if (_file) 
-    _file->write(str);
-}
-
-void File::write(const uint8_t *buf, size_t size) {
-  if (_file)
-    _file->write(buf, size);
+size_t File::write(const uint8_t *buf, size_t size) {
+  size_t t;
+  if (!_file) {
+    setWriteError();
+    return 0;
+  }
+  _file->clearWriteError();
+  t = _file->write(buf, size);
+  if (_file->getWriteError()) {
+    setWriteError();
+    return 0;
+  }
+  return t;
 }
 
 int File::peek() {
@@ -97,7 +101,10 @@ int File::read(void *buf, uint16_t nbyte) {
 
 int File::available() {
   if (! _file) return 0;
-  return size() - position();
+
+  uint32_t n = size() - position();
+
+  return n > 0X7FFF ? 0X7FFF : n;
 }
 
 void File::flush() {

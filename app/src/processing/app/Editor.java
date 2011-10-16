@@ -46,6 +46,7 @@ import gnu.io.*;
 /**
  * Main editor panel for the Processing Development Environment.
  */
+@SuppressWarnings("serial")
 public class Editor extends JFrame implements RunnerListener {
 
   Base base;
@@ -113,7 +114,7 @@ public class Editor extends JFrame implements RunnerListener {
 
   EditorLineStatus lineStatus;
 
-  JEditorPane editorPane;
+  //JEditorPane editorPane;
   
   JEditTextArea textarea;
   EditorListener listener;
@@ -195,8 +196,10 @@ public class Editor extends JFrame implements RunnerListener {
     //PdeKeywords keywords = new PdeKeywords();
     //sketchbook = new Sketchbook(this);
 
-    if (serialMonitor == null)
+    if (serialMonitor == null) {
       serialMonitor = new SerialMonitor(Preferences.get("serial.port"));
+      serialMonitor.setIconImage(getIconImage());
+    }
     
     buildMenuBar();
 
@@ -907,6 +910,7 @@ public class Editor extends JFrame implements RunnerListener {
 
     public void actionPerformed(ActionEvent e) {
       selectSerialPort(((JCheckBoxMenuItem)e.getSource()).getText());
+      base.onBoardOrPortChange();
     }
 
     /*
@@ -1818,7 +1822,7 @@ public class Editor extends JFrame implements RunnerListener {
     internalCloseRunner();
     running = true;
     toolbar.activate(EditorToolbar.RUN);
-    statusNotice("Compiling...");
+    status.progress("Compiling sketch...");
 
     // do this to advance/clear the terminal window / dos prompt / etc
     for (int i = 0; i < 10; i++) System.out.println();
@@ -1838,12 +1842,14 @@ public class Editor extends JFrame implements RunnerListener {
     public void run() {
       try {
         sketch.prepare();
-        String appletClassName = sketch.build(false);
+        sketch.build(false);
         statusNotice("Done compiling.");
       } catch (Exception e) {
+        status.unprogress();
         statusError(e);
       }
 
+      status.unprogress();
       toolbar.deactivate(EditorToolbar.RUN);
     }
   }
@@ -1853,12 +1859,14 @@ public class Editor extends JFrame implements RunnerListener {
     public void run() {
       try {
         sketch.prepare();
-        String appletClassName = sketch.build(true);
+        sketch.build(true);
         statusNotice("Done compiling.");
       } catch (Exception e) {
+        status.unprogress();
         statusError(e);
       }
 
+      status.unprogress();
       toolbar.deactivate(EditorToolbar.RUN);
     }
   }
@@ -2040,87 +2048,38 @@ public class Editor extends JFrame implements RunnerListener {
    * modifications (if any) to the previous sketch need to be saved.
    */
   protected boolean handleOpenInternal(String path) {
-    // rename .pde files to .ino
-    File[] oldFiles = (new File(path)).getParentFile().listFiles(new FilenameFilter() {
-      public boolean accept(File dir, String name) {
-        return (name.toLowerCase().endsWith(".pde"));
-      }
-    });
-    
-    if (oldFiles != null && oldFiles.length > 0) {
-      if (!Preferences.getBoolean("editor.update_extension")) {
-        Object[] options = { "OK", "Cancel" };
-        String prompt =
-          "In Arduino 1.0, the file extension for sketches changed\n" +
-          "from \".pde\" to \".ino\".  This version of the software only\n" +
-          "supports the new extension.  Rename the files in this sketch\n" +
-          "(and future sketches) and continue?";
-        
-        int result = JOptionPane.showOptionDialog(this,
-                                                  prompt,
-                                                  "New extension",
-                                                  JOptionPane.YES_NO_OPTION,
-                                                  JOptionPane.QUESTION_MESSAGE,
-                                                  null,
-                                                  options,
-                                                  options[0]);
-        if (result != JOptionPane.YES_OPTION) {
-          return false;
-        }
-        
-        Preferences.setBoolean("editor.update_extension", true);
-      }
-      
-      for (int i = 0; i < oldFiles.length; i++) {
-        String oldPath = oldFiles[i].getPath();
-        File newFile = new File(oldPath.substring(0, oldPath.length() - 4) + ".ino");
-        try {
-          Base.copyFile(oldFiles[i], newFile);
-        } catch (IOException e) {
-          Base.showWarning("Error", "Could not copy to a proper location.", e);
-          return false;
-        }
-
-        // remove the original file, so user doesn't get confused
-        oldFiles[i].delete();
-
-        // update with the new path
-        if (oldFiles[i].compareTo(new File(path)) == 0) {
-          path = newFile.getAbsolutePath();      	
-        }
-      }
-    }
-    
     // check to make sure that this .pde file is
     // in a folder of the same name
     File file = new File(path);
-    File parentFile = new File(file.getParent());
-    String parentName = parentFile.getName();
-    String pdeName = parentName + ".ino";
-    File altFile = new File(file.getParent(), pdeName);
+    String fileName = file.getName();
+    File parent = file.getParentFile();
+    String parentName = parent.getName();
+    String pdeName = parentName + ".pde";
+    File altPdeFile = new File(parent, pdeName);
+    String inoName = parentName + ".ino";
+    File altInoFile = new File(parent, pdeName);
     
-    if (pdeName.equals(file.getName())) {
+    if (pdeName.equals(fileName) || inoName.equals(fileName)) {
       // no beef with this guy
 
-    } else if (altFile.exists()) {
-      // user selected a .java from the same sketch,
-      // but open the .pde instead
-      path = altFile.getAbsolutePath();
-      //System.out.println("found alt file in same folder");
-
-    } else if (!path.endsWith(".ino")) {
+    } else if (altPdeFile.exists()) {
+      // user selected a .java from the same sketch, but open the .pde instead
+      path = altPdeFile.getAbsolutePath();
+    } else if (altInoFile.exists()) {
+      path = altInoFile.getAbsolutePath();
+    } else if (!path.endsWith(".ino") && !path.endsWith(".pde")) {
       Base.showWarning("Bad file selected",
                        "Processing can only open its own sketches\n" +
-                       "and other files ending in .ino", null);
+                       "and other files ending in .ino or .pde", null);
       return false;
 
     } else {
       String properParent =
-        file.getName().substring(0, file.getName().length() - 4);
+        fileName.substring(0, fileName.length() - 4);
 
       Object[] options = { "OK", "Cancel" };
       String prompt =
-        "The file \"" + file.getName() + "\" needs to be inside\n" +
+        "The file \"" + fileName + "\" needs to be inside\n" +
         "a sketch folder named \"" + properParent + "\".\n" +
         "Create this folder, move the file, and continue?";
 
@@ -2215,7 +2174,7 @@ public class Editor extends JFrame implements RunnerListener {
       // need to get the name, user might also cancel here
 
     } else if (immediately) {
-      handleSave2();
+      return handleSave2();
 
     } else {
       SwingUtilities.invokeLater(new Runnable() {
@@ -2228,15 +2187,16 @@ public class Editor extends JFrame implements RunnerListener {
   }
 
 
-  protected void handleSave2() {
+  protected boolean handleSave2() {
     toolbar.activate(EditorToolbar.SAVE);
     statusNotice("Saving...");
+    boolean saved = false;
     try {
-      if (sketch.save()) {
+      saved = sketch.save();
+      if (saved)
         statusNotice("Done Saving.");
-      } else {
+      else
         statusEmpty();
-      }
       // rebuild sketch menu in case a save-as was forced
       // Disabling this for 0125, instead rebuild the menu inside
       // the Save As method of the Sketch object, since that's the
@@ -2255,6 +2215,7 @@ public class Editor extends JFrame implements RunnerListener {
     }
     //toolbar.clear();
     toolbar.deactivate(EditorToolbar.SAVE);
+    return saved;
   }
 
 
@@ -2311,6 +2272,7 @@ public class Editor extends JFrame implements RunnerListener {
                                   0);
     if (result == null) return false;
     selectSerialPort(result);
+    base.onBoardOrPortChange();
     return true;
   }
 
@@ -2334,7 +2296,7 @@ public class Editor extends JFrame implements RunnerListener {
     //if (!handleExportCheckModified()) return;
     toolbar.activate(EditorToolbar.EXPORT);
     console.clear();
-    statusNotice("Uploading to I/O Board...");
+    status.progress("Uploading to I/O Board...");
 
     new Thread(usingProgrammer ? exportAppHandler : exportHandler).start();
   }
@@ -2363,10 +2325,12 @@ public class Editor extends JFrame implements RunnerListener {
       } catch (RunnerException e) {
         //statusError("Error during upload.");
         //e.printStackTrace();
+        status.unprogress();
         statusError(e);
       } catch (Exception e) {
         e.printStackTrace();
       }
+      status.unprogress();
       uploading = false;
       //toolbar.clear();
       toolbar.deactivate(EditorToolbar.EXPORT);
@@ -2397,10 +2361,12 @@ public class Editor extends JFrame implements RunnerListener {
       } catch (RunnerException e) {
         //statusError("Error during upload.");
         //e.printStackTrace();
+        status.unprogress();
         statusError(e);
       } catch (Exception e) {
         e.printStackTrace();
       }
+      status.unprogress();
       uploading = false;
       //toolbar.clear();
       toolbar.deactivate(EditorToolbar.EXPORT);
@@ -2615,30 +2581,49 @@ public class Editor extends JFrame implements RunnerListener {
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
+  protected void onBoardOrPortChange() {
+    Map<String, String> boardPreferences =  Base.getBoardPreferences();
+    lineStatus.setBoardName(boardPreferences.get("name"));
+    lineStatus.setSerialPort(Preferences.get("serial.port"));
+    lineStatus.repaint();
+  }
 
+  
   /**
    * Returns the edit popup menu.
    */
   class TextAreaPopup extends JPopupMenu {
-    //String currentDir = System.getProperty("user.dir");
-    String referenceFile = null;
+    //private String currentDir = System.getProperty("user.dir");
+    private String referenceFile = null;
 
-    JMenuItem cutItem;
-    JMenuItem copyItem;
-    JMenuItem discourseItem;
-    JMenuItem referenceItem;
+    private JMenuItem cutItem;
+    private JMenuItem copyItem;
+    private JMenuItem discourseItem;
+    private JMenuItem referenceItem;
+    private JMenuItem openURLItem;
+    private JSeparator openURLItemSeparator;
 
+    private String clickedURL;
 
     public TextAreaPopup() {
-      JMenuItem item;
-
+      openURLItem = new JMenuItem("Open URL");
+      openURLItem.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) {
+          Base.openURL(clickedURL);
+        }
+      });
+      add(openURLItem);
+      
+      openURLItemSeparator = new JSeparator();
+      add(openURLItemSeparator);
+      
       cutItem = new JMenuItem("Cut");
       cutItem.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             handleCut();
           }
       });
-      this.add(cutItem);
+      add(cutItem);
 
       copyItem = new JMenuItem("Copy");
       copyItem.addActionListener(new ActionListener() {
@@ -2646,7 +2631,7 @@ public class Editor extends JFrame implements RunnerListener {
             handleCopy();
           }
         });
-      this.add(copyItem);
+      add(copyItem);
 
       discourseItem = new JMenuItem("Copy for Forum");
       discourseItem.addActionListener(new ActionListener() {
@@ -2654,7 +2639,7 @@ public class Editor extends JFrame implements RunnerListener {
             handleDiscourseCopy();
           }
         });
-      this.add(discourseItem);
+      add(discourseItem);
 
       discourseItem = new JMenuItem("Copy as HTML");
       discourseItem.addActionListener(new ActionListener() {
@@ -2662,15 +2647,15 @@ public class Editor extends JFrame implements RunnerListener {
             handleHTMLCopy();
           }
         });
-      this.add(discourseItem);
+      add(discourseItem);
 
-      item = new JMenuItem("Paste");
+      JMenuItem item = new JMenuItem("Paste");
       item.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent e) {
             handlePaste();
           }
         });
-      this.add(item);
+      add(item);
 
       item = new JMenuItem("Select All");
       item.addActionListener(new ActionListener() {
@@ -2678,9 +2663,9 @@ public class Editor extends JFrame implements RunnerListener {
           handleSelectAll();
         }
       });
-      this.add(item);
+      add(item);
 
-      this.addSeparator();
+      addSeparator();
 
       item = new JMenuItem("Comment/Uncomment");
       item.addActionListener(new ActionListener() {
@@ -2688,7 +2673,7 @@ public class Editor extends JFrame implements RunnerListener {
             handleCommentUncomment();
           }
       });
-      this.add(item);
+      add(item);
 
       item = new JMenuItem("Increase Indent");
       item.addActionListener(new ActionListener() {
@@ -2696,7 +2681,7 @@ public class Editor extends JFrame implements RunnerListener {
             handleIndentOutdent(true);
           }
       });
-      this.add(item);
+      add(item);
 
       item = new JMenuItem("Decrease Indent");
       item.addActionListener(new ActionListener() {
@@ -2704,9 +2689,9 @@ public class Editor extends JFrame implements RunnerListener {
             handleIndentOutdent(false);
           }
       });
-      this.add(item);
+      add(item);
 
-      this.addSeparator();
+      addSeparator();
 
       referenceItem = new JMenuItem("Find in Reference");
       referenceItem.addActionListener(new ActionListener() {
@@ -2714,11 +2699,23 @@ public class Editor extends JFrame implements RunnerListener {
             handleFindReference();
           }
         });
-      this.add(referenceItem);
+      add(referenceItem);
     }
 
     // if no text is selected, disable copy and cut menu items
     public void show(Component component, int x, int y) {
+      int lineNo = textarea.getLineOfOffset(textarea.xyToOffset(x, y));
+      int offset = textarea.xToOffset(lineNo, x);
+      String line = textarea.getLineText(lineNo);
+      clickedURL = textarea.checkClickedURL(line, offset);
+      if (clickedURL != null) {
+        openURLItem.setVisible(true);
+        openURLItemSeparator.setVisible(true);
+      } else {
+        openURLItem.setVisible(false);
+        openURLItemSeparator.setVisible(false);
+      }
+      
       if (textarea.isSelectionActive()) {
         cutItem.setEnabled(true);
         copyItem.setEnabled(true);

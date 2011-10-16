@@ -28,7 +28,7 @@ buttons.status.font = SansSerif,plain,12
 buttons.status.color = #ffffff
 
 # GUI - LINESTATUS   
-linestatus.color = #17A1A5
+linestatus.color = #ffffff
 linestatus.bgcolor = #006468
 
 # EDITOR - DETAILS
@@ -82,6 +82,9 @@ editor.literal1.style = #006699,plain
 
 # p5 built in variables: e.g. mouseX, width, pixels
 editor.literal2.style = #006699,plain
+
+# http://arduino.cc/
+editor.url.style = #0000ff,underlined
 
 # e.g. + - = /
 editor.operator.style = #000000,plain

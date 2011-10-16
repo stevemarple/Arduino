@@ -55,14 +55,15 @@ class HardwareSerial : public Stream
     virtual int peek(void);
     virtual int read(void);
     virtual void flush(void);
-    virtual void write(uint8_t);
+    virtual size_t write(uint8_t);
     using Print::write; // pull in write(str) and write(buf, size) from Print
 };
 
 #if defined(UBRRH) || defined(UBRR0H)
   extern HardwareSerial Serial;
 #elif defined(USBCON)
-  #include "usb_api.h"
+  #include "USBAPI.h"
+//  extern HardwareSerial Serial_;  
 #endif
 #if defined(UBRR1H)
   extern HardwareSerial Serial1;
@@ -73,5 +74,7 @@ class HardwareSerial : public Stream
 #if defined(UBRR3H)
   extern HardwareSerial Serial3;
 #endif
+
+extern void serialEventRun(void) __attribute__((weak));
 
 #endif

@@ -91,19 +91,19 @@ public class Compiler implements MessageConsumer {
       corePath = coreFolder.getAbsolutePath();
     }
 
-    String pins = boardPreferences.get("build.pins");
-    String pinsPath = null;
+    String variant = boardPreferences.get("build.variant");
+    String variantPath = null;
     
-    if (pins != null) {
-      if (pins.indexOf(':') == -1) {
+    if (variant != null) {
+      if (variant.indexOf(':') == -1) {
 	Target t = Base.getTarget();
-	File pinsFolder = new File(new File(t.getFolder(), "pins"), pins);
-	pinsPath = pinsFolder.getAbsolutePath();
+	File variantFolder = new File(new File(t.getFolder(), "variants"), variant);
+	variantPath = variantFolder.getAbsolutePath();
       } else {
-	Target t = Base.targetsTable.get(pins.substring(0, pins.indexOf(':')));
-	File pinsFolder = new File(t.getFolder(), "pins");
-	pinsFolder = new File(pinsFolder, pins.substring(pins.indexOf(':') + 1));
-	pinsPath = pinsFolder.getAbsolutePath();
+	Target t = Base.targetsTable.get(variant.substring(0, variant.indexOf(':')));
+	File variantFolder = new File(t.getFolder(), "variants");
+	variantFolder = new File(variantFolder, variant.substring(variant.indexOf(':') + 1));
+	variantPath = variantFolder.getAbsolutePath();
       }
     }
 
@@ -111,15 +111,17 @@ public class Compiler implements MessageConsumer {
 
    // 0. include paths for core + all libraries
 
+   sketch.setCompilingProgress(20);
    List includePaths = new ArrayList();
    includePaths.add(corePath);
-   if (pinsPath != null) includePaths.add(pinsPath);
+   if (variantPath != null) includePaths.add(variantPath);
    for (File file : sketch.getImportedLibraries()) {
      includePaths.add(file.getPath());
    }
 
    // 1. compile the sketch (already in the buildPath)
 
+   sketch.setCompilingProgress(30);
    objectFiles.addAll(
      compileFiles(avrBasePath, buildPath, includePaths,
                findFilesInPath(buildPath, "S", false),
@@ -129,6 +131,7 @@ public class Compiler implements MessageConsumer {
 
    // 2. compile the libraries, outputting .o files to: <buildPath>/<library>/
 
+   sketch.setCompilingProgress(40);
    for (File libraryFolder : sketch.getImportedLibraries()) {
      File outputFolder = new File(buildPath, libraryFolder.getName());
      File utilityFolder = new File(libraryFolder, "utility");
@@ -156,9 +159,10 @@ public class Compiler implements MessageConsumer {
    // 3. compile the core, outputting .o files to <buildPath> and then
    // collecting them into the core.a library file.
 
+   sketch.setCompilingProgress(50);
   includePaths.clear();
   includePaths.add(corePath);  // include path for core only
-  if (pinsPath != null) includePaths.add(pinsPath);
+  if (variantPath != null) includePaths.add(variantPath);
   List<File> coreObjectFiles =
     compileFiles(avrBasePath, buildPath, includePaths,
               findFilesInPath(corePath, "S", true),
@@ -180,6 +184,7 @@ public class Compiler implements MessageConsumer {
 
     // 4. link it all together into the .elf file
 
+   sketch.setCompilingProgress(60);
     List baseCommandLinker = new ArrayList(Arrays.asList(new String[] {
       avrBasePath + "avr-gcc",
       "-Os",
@@ -208,6 +213,7 @@ public class Compiler implements MessageConsumer {
     List commandObjcopy;
 
     // 5. extract EEPROM data (from EEMEM directive) to .eep file.
+    sketch.setCompilingProgress(70);
     commandObjcopy = new ArrayList(baseCommandObjcopy);
     commandObjcopy.add(2, "ihex");
     commandObjcopy.set(3, "-j");
@@ -221,6 +227,7 @@ public class Compiler implements MessageConsumer {
     execAsynchronously(commandObjcopy);
     
     // 6. build the .hex file
+    sketch.setCompilingProgress(80);
     commandObjcopy = new ArrayList(baseCommandObjcopy);
     commandObjcopy.add(2, "ihex");
     commandObjcopy.add(".eeprom"); // remove eeprom data
@@ -228,6 +235,8 @@ public class Compiler implements MessageConsumer {
     commandObjcopy.add(buildPath + File.separator + primaryClassName + ".hex");
     execAsynchronously(commandObjcopy);
     
+    sketch.setCompilingProgress(90);
+   
     return true;
   }
 
@@ -371,28 +380,60 @@ public class Compiler implements MessageConsumer {
 //    }
     
     if (pieces != null) {
-      RunnerException e = sketch.placeException(pieces[3], pieces[1], PApplet.parseInt(pieces[2]) - 1);
+      String error = pieces[3], msg = "";
+      
+      if (pieces[3].trim().equals("SPI.h: No such file or directory")) {
+        error = "Please import the SPI library from the Sketch > Import Library menu.";
+        msg = "\nAs of Arduino 0019, the Ethernet library depends on the SPI library." +
+              "\nYou appear to be using it or another library that depends on the SPI library.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("'BYTE' was not declared in this scope")) {
+        error = "The 'BYTE' keyword is no longer supported.";
+        msg = "\nAs of Arduino 1.0, the 'BYTE' keyword is no longer supported." +
+              "\nPlease use Serial.write() instead.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("no matching function for call to 'Server::Server(int)'")) {
+        error = "The Server class has been renamed EthernetServer.";
+        msg = "\nAs of Arduino 1.0, the Server class in the Ethernet library " +
+              "has been renamed to EthernetServer.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("no matching function for call to 'Client::Client(byte [4], int)'")) {
+        error = "The Client class has been renamed EthernetClient.";
+        msg = "\nAs of Arduino 1.0, the Client class in the Ethernet library " +
+              "has been renamed to EthernetClient.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("'Udp' was not declared in this scope")) {
+        error = "The Udp class has been renamed EthernetUdp.";
+        msg = "\nAs of Arduino 1.0, the Udp class in the Ethernet library " +
+              "has been renamed to EthernetClient.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("'class TwoWire' has no member named 'send'")) {
+        error = "Wire.send() has been renamed Wire.write().";
+        msg = "\nAs of Arduino 1.0, the Wire.send() function was renamed " +
+              "to Wire.write() for consistency with other libraries.\n\n";
+      }
+      
+      if (pieces[3].trim().equals("'class TwoWire' has no member named 'receive'")) {
+        error = "Wire.receive() has been renamed Wire.read().";
+        msg = "\nAs of Arduino 1.0, the Wire.receive() function was renamed " +
+              "to Wire.read() for consistency with other libraries.\n\n";
+      }
+
+      RunnerException e = sketch.placeException(error, pieces[1], PApplet.parseInt(pieces[2]) - 1);
 
       // replace full file path with the name of the sketch tab (unless we're
       // in verbose mode, in which case don't modify the compiler output)
       if (e != null && !verbose) {
         SketchCode code = sketch.getCode(e.getCodeIndex());
         String fileName = code.isExtension(sketch.getDefaultExtension()) ? code.getPrettyName() : code.getFileName();
-        s = fileName + ":" + e.getCodeLine() + ": error: " + e.getMessage();        
+        s = fileName + ":" + e.getCodeLine() + ": error: " + pieces[3] + msg;        
       }
-      
-      if (pieces[3].trim().equals("SPI.h: No such file or directory")) {
-        e = new RunnerException("Please import the SPI library from the Sketch > Import Library menu.");
-        s += "\nAs of Arduino 0019, the Ethernet library depends on the SPI library." +
-             "\nYou appear to be using it or another library that depends on the SPI library.";
-      }
-      
-      if (pieces[3].trim().equals("'BYTE' was not declared in this scope")) {
-        e = new RunnerException("The 'BYTE' keyword is no longer supported.");
-	s += "\nAs of Arduino 1.0, the 'BYTE' keyword is no longer supported." +
-	     "\nPlease use Serial.write() instead.";
-      }
-      
+            
       if (exception == null && e != null) {
         exception = e;
         exception.hideStackTrace();
@@ -435,7 +476,7 @@ public class Compiler implements MessageConsumer {
       "-c", // compile, don't link
       "-g", // include debugging info (so errors include line numbers)
       "-Os", // optimize for size
-      "-w", // surpress all warnings
+      Preferences.getBoolean("build.verbose") ? "-Wall" : "-w", // show warnings if verbose
       "-ffunction-sections", // place each function in its own section
       "-fdata-sections",
       "-mmcu=" + boardPreferences.get("build.mcu"),
@@ -463,7 +504,7 @@ public class Compiler implements MessageConsumer {
       "-c", // compile, don't link
       "-g", // include debugging info (so errors include line numbers)
       "-Os", // optimize for size
-      "-w", // surpress all warnings
+      Preferences.getBoolean("build.verbose") ? "-Wall" : "-w", // show warnings if verbose
       "-fno-exceptions",
       "-ffunction-sections", // place each function in its own section
       "-fdata-sections",

@@ -50,6 +50,10 @@ struct ring_buffer
   volatile int tail;
 };
 
+#if defined(USBCON)
+  ring_buffer rx_buffer = { { 0 }, 0, 0};
+  ring_buffer tx_buffer = { { 0 }, 0, 0};
+#endif
 #if defined(UBRRH) || defined(UBRR0H)
   ring_buffer rx_buffer  =  { { 0 }, 0, 0 };
   ring_buffer tx_buffer  =  { { 0 }, 0, 0 };
@@ -81,13 +85,17 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
   }
 }
 
+#if !defined(USART0_RX_vect) && defined(USART1_RX_vect)
+// do nothing - on the 32u4 the first USART is USART1
+#else
 #if !defined(USART_RX_vect) && !defined(SIG_USART0_RECV) && \
     !defined(SIG_UART0_RECV) && !defined(USART0_RX_vect) && \
 	!defined(SIG_UART_RECV)
-  #error Don't know what the Data Received vector is called for the first UART
+  #error "Don't know what the Data Received vector is called for the first UART"
 #else
   void serialEvent() __attribute__((weak));
   void serialEvent() {}
+  #define serialEvent_implemented
 #if defined(USART_RX_vect)
   SIGNAL(USART_RX_vect)
 #elif defined(SIG_USART0_RECV)
@@ -108,18 +116,18 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
     #error UDR not defined
   #endif
     store_char(c, &rx_buffer);
-	serialEvent();
   }
+#endif
 #endif
 
 #if defined(USART1_RX_vect)
   void serialEvent1() __attribute__((weak));
   void serialEvent1() {}
+  #define serialEvent1_implemented
   SIGNAL(USART1_RX_vect)
   {
     unsigned char c = UDR1;
     store_char(c, &rx_buffer1);
-	serialEvent1();
   }
 #elif defined(SIG_USART1_RECV)
   #error SIG_USART1_RECV
@@ -128,11 +136,11 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
 #if defined(USART2_RX_vect) && defined(UDR2)
   void serialEvent2() __attribute__((weak));
   void serialEvent2() {}
+  #define serialEvent2_implemented
   SIGNAL(USART2_RX_vect)
   {
     unsigned char c = UDR2;
     store_char(c, &rx_buffer2);
-	serialEvent2();
   }
 #elif defined(SIG_USART2_RECV)
   #error SIG_USART2_RECV
@@ -141,19 +149,38 @@ inline void store_char(unsigned char c, ring_buffer *buffer)
 #if defined(USART3_RX_vect) && defined(UDR3)
   void serialEvent3() __attribute__((weak));
   void serialEvent3() {}
+  #define serialEvent3_implemented
   SIGNAL(USART3_RX_vect)
   {
     unsigned char c = UDR3;
     store_char(c, &rx_buffer3);
-	serialEvent3();
   }
 #elif defined(SIG_USART3_RECV)
   #error SIG_USART3_RECV
 #endif
 
+void serialEventRun(void)
+{
+#ifdef serialEvent_implemented
+  if (Serial.available()) serialEvent();
+#endif
+#ifdef serialEvent1_implemented
+  if (Serial1.available()) serialEvent1();
+#endif
+#ifdef serialEvent2_implemented
+  if (Serial2.available()) serialEvent2();
+#endif
+#ifdef serialEvent3_implemented
+  if (Serial3.available()) serialEvent3();
+#endif
+}
 
+
+#if !defined(USART0_UDRE_vect) && defined(USART1_UDRE_vect)
+// do nothing - on the 32u4 the first USART is USART1
+#else
 #if !defined(UART0_UDRE_vect) && !defined(UART_UDRE_vect) && !defined(USART0_UDRE_vect) && !defined(USART_UDRE_vect)
-  #error Don't know what the Data Register Empty vector is called for the first UART
+  #error "Don't know what the Data Register Empty vector is called for the first UART"
 #else
 #if defined(UART0_UDRE_vect)
 ISR(UART0_UDRE_vect)
@@ -187,6 +214,7 @@ ISR(USART_UDRE_vect)
   #endif
   }
 }
+#endif
 #endif
 
 #ifdef USART1_UDRE_vect
@@ -352,12 +380,13 @@ void HardwareSerial::flush()
     ;
 }
 
-void HardwareSerial::write(uint8_t c)
+size_t HardwareSerial::write(uint8_t c)
 {
   int i = (_tx_buffer->head + 1) % SERIAL_BUFFER_SIZE;
 	
   // If the output buffer is full, there's nothing for it other than to 
   // wait for the interrupt handler to empty it a bit
+  // ???: return 0 here instead?
   while (i == _tx_buffer->tail)
     ;
 	
@@ -365,6 +394,8 @@ void HardwareSerial::write(uint8_t c)
   _tx_buffer->head = i;
 	
   sbi(*_ucsrb, _udrie);
+  
+  return 1;
 }
 
 // Preinstantiate Objects //////////////////////////////////////////////////////
@@ -374,7 +405,7 @@ void HardwareSerial::write(uint8_t c)
 #elif defined(UBRR0H) && defined(UBRR0L)
   HardwareSerial Serial(&rx_buffer, &tx_buffer, &UBRR0H, &UBRR0L, &UCSR0A, &UCSR0B, &UDR0, RXEN0, TXEN0, RXCIE0, UDRIE0, U2X0);
 #elif defined(USBCON)
-  #warning no serial port defined  (port 0)
+  // do nothing - Serial object and buffers are initialized in CDC code
 #else
   #error no serial port defined  (port 0)
 #endif

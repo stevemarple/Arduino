@@ -5,7 +5,7 @@
 #ifndef DNSClient_h
 #define DNSClient_h
 
-#include <Udp.h>
+#include <EthernetUdp.h>
 
 class DNSClient
 {
@@ -31,11 +31,11 @@ public:
 
 protected:
     uint16_t BuildRequest(const char* aName);
-    uint16_t ProcessResponse(int aTimeout, IPAddress& aAddress);
+    uint16_t ProcessResponse(uint16_t aTimeout, IPAddress& aAddress);
 
     IPAddress iDNSServer;
     uint16_t iRequestId;
-    UDP iUdp;
+    EthernetUDP iUdp;
 };
 
 #endif

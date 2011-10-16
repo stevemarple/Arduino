@@ -29,12 +29,11 @@ class File : public Stream {
   SdFile *_file;  // underlying file pointer
 
 public:
-  File(SdFile f, char *name);     // wraps an underlying SdFile
+  File(SdFile f, const char *name);     // wraps an underlying SdFile
   File(void);      // 'empty' constructor
   ~File(void);     // destructor
-  virtual void write(uint8_t);
-  virtual void write(const char *str);
-  virtual void write(const uint8_t *buf, size_t size);
+  virtual size_t write(uint8_t);
+  virtual size_t write(const uint8_t *buf, size_t size);
   virtual int read();
   virtual int peek();
   virtual int available();
@@ -50,6 +49,8 @@ public:
   boolean isDirectory(void);
   File openNextFile(uint8_t mode = O_RDONLY);
   void rewindDirectory(void);
+  
+  using Print::write;
 };
 
 class SDClass {
@@ -61,7 +62,7 @@ private:
   SdFile root;
   
   // my quick&dirty iterator, should be replaced
-  SdFile getParentDir(char *filepath, int *indx);
+  SdFile getParentDir(const char *filepath, int *indx);
 public:
   // This needs to be called to set up the connection to the SD card
   // before other methods are used.
@@ -70,7 +71,7 @@ public:
   // Open the specified file/directory with the supplied mode (e.g. read or
   // write, etc). Returns a File object for interacting with the file.
   // Note that currently only one file can be open at a time.
-  File open(char *filename, uint8_t mode = FILE_READ);
+  File open(const char *filename, uint8_t mode = FILE_READ);
 
   // Methods to determine if the requested file path exists.
   boolean exists(char *filepath);

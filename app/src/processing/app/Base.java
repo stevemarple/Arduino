@@ -349,10 +349,6 @@ public class Base {
     int opened = 0;
     for (int i = 0; i < count; i++) {
       String path = Preferences.get("last.sketch" + i + ".path");
-      // don't automatically rename sketches that were left open from a 
-      // pre-1.0 version of Arduino (wait for the user to explicitly open
-      // the sketch before renaming it).
-      if (path.toLowerCase().endsWith(".pde")) continue;
       int[] location;
       if (windowPositionValid) {
         String locationStr = Preferences.get("last.sketch" + i + ".location");
@@ -993,6 +989,13 @@ public class Base {
   }
   
   
+  public void onBoardOrPortChange() {
+    for (Editor editor : editors) {
+      editor.onBoardOrPortChange();
+    }  
+  }
+
+  
   public void rebuildBoardsMenu(JMenu menu) {
     //System.out.println("rebuilding boards menu");
     menu.removeAll();      
@@ -1005,6 +1008,7 @@ public class Base {
               //System.out.println("Switching to " + target + ":" + board);
               Preferences.set("target", (String) getValue("target"));
               Preferences.set("board", (String) getValue("board"));
+              onBoardOrPortChange();
             }
           };
         action.putValue("target", target.getName());
@@ -1714,6 +1718,10 @@ public class Base {
    * Give this Frame a Processing icon.
    */
   static public void setIcon(Frame frame) {
+    // don't use the low-res icon on Mac OS X; the window should
+    // already have the right icon from the .app file.
+    if (Base.isMacOS()) return;
+    
     Image image = Toolkit.getDefaultToolkit().createImage(PApplet.ICON_IMAGE);
     frame.setIconImage(image);
   }
