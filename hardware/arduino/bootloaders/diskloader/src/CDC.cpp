@@ -21,14 +21,6 @@
 #include <avr/wdt.h>
 
 #if defined(USBCON)
-#ifdef CDC_ENABLED
-
-void Reboot()
-{
-	USB.detach();
-	cli();
-	asm volatile("jmp 0x7000");		// jump to bootloader - DiskLoader lives in the last 4kB of Flash
-}
 
 typedef struct
 {
@@ -92,84 +84,10 @@ bool WEAK CDC_Setup(Setup& setup)
 
 		if (CDC_SET_CONTROL_LINE_STATE == r)
 		{
-			if (0 != _usbLineInfo.lineState && 1200 == _usbLineInfo.dwDTERate)	// auto-reset is triggered when the port, already open at 1200 bps, is closed
-				Reboot();
 			_usbLineInfo.lineState = setup.wValueL;
 			return true;
 		}
 	}
 	return false;
 }
-
-
-int _serialPeek = -1;
-void Serial_::begin(uint16_t baud_count)
-{
-}
-
-void Serial_::end(void)
-{
-}
-
-int Serial_::available(void)
-{
-	u8 avail = USB_Available(CDC_RX);
-	if (_serialPeek != -1)
-		avail++;
-	return avail;
-}
-
-//	peek is nasty
-int Serial_::peek(void)
-{
-	if (_serialPeek == -1)
-		_serialPeek = read();
-	return _serialPeek;
-}
-
-int Serial_::read(void)
-{
-	int c;
-	if (_serialPeek != -1)
-	{
-		c = _serialPeek;
-		_serialPeek = -1;
-	} else {
-		c = USB_Recv(CDC_RX);
-	}
-	return c;
-}
-
-void Serial_::flush(void)
-{
-	USB_Flush(CDC_TX);
-}
-
-size_t Serial_::write(uint8_t c)
-{
-	/* only try to send bytes if the high-level CDC connection itself 
-	 is open (not just the pipe) - the OS should set lineState when the port
-	 is opened and clear lineState when the port is closed.
-	 bytes sent before the user opens the connection or after
-	 the connection is closed are lost - just like with a UART. */
-	
-	// TODO - ZE - check behavior on different OSes and test what happens if an
-	// open connection isn't broken cleanly (cable is yanked out, host dies
-	// or locks up, or host virtual serial port hangs)
-	if (_usbLineInfo.lineState > 0)	{
-		int r = USB_Send(CDC_TX,&c,1);
-		if (r > 0) {
-			return r;
-		} else {
-			setWriteError();
-			return 0;
-		}
-	}
-	setWriteError();
-	return 0;
-}
-
-Serial_ Serial;
-
-#endif
 #endif /* if defined(USBCON) */
