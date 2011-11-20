@@ -320,7 +320,10 @@ private:
   uint16_t RBASE[SOCKETS]; // Rx buffer base address
 
 private:
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_ATmega164P__) || defined(__AVR_ATmega324P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__)
+  // On the Arduino Mega (__AVR_ATmega1280__) and Mega2560
+  // (__AVR_ATmega2560__) 'SS' is actually just pin 10 (PORTB4). On
+  // the '164/'324/'644/'1284 PORTB4 really is SS.
   inline static void initSS()    { DDRB  |=  _BV(4); };
   inline static void setSS()     { PORTB &= ~_BV(4); };
   inline static void resetSS()   { PORTB |=  _BV(4); };
@@ -334,7 +337,7 @@ private:
   inline static void resetSS()   { PORTB |=  _BV(2); };
 #endif
 
-};
+  };
 
 extern W5100Class W5100;
 
