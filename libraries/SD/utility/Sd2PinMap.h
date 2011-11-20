@@ -117,6 +117,100 @@ static const pin_map_t digitalPinMap[] = {
   {&DDRK, &PINK, &PORTK, 7}   // K7 69
 };
 //------------------------------------------------------------------------------
+#elif defined(CALUNIUM)
+// Two Wire (aka I2C) ports
+uint8_t const SDA_PIN = 20;
+uint8_t const SCL_PIN = 21;
+
+// SPI port
+uint8_t const SS_PIN = 10;
+uint8_t const MOSI_PIN = 11;
+uint8_t const MISO_PIN = 12;
+uint8_t const SCK_PIN = 13;
+
+#if CALUNIUM_VARIANT == PCB
+static const pin_map_t digitalPinMap[] = {
+  {&DDRD, &PIND, &PORTD, 0},  // D0  0
+  {&DDRD, &PIND, &PORTD, 1},  // D1  1
+  {&DDRD, &PIND, &PORTD, 2},  // D2  2
+  {&DDRD, &PIND, &PORTD, 3},  // D3  3
+  {&DDRB, &PINB, &PORTB, 0},  // B0  4
+  {&DDRB, &PINB, &PORTB, 1},  // B1  5
+  {&DDRB, &PINB, &PORTB, 2},  // B2  6
+  {&DDRB, &PINB, &PORTB, 3},  // B3  7
+
+  {&DDRD, &PIND, &PORTD, 6},  // D6  8
+  {&DDRD, &PIND, &PORTD, 5},  // D5  9
+  {&DDRB, &PINB, &PORTB, 4},  // B4 10
+  {&DDRB, &PINB, &PORTB, 5},  // B5 11
+  {&DDRB, &PINB, &PORTB, 6},  // B6 12
+  {&DDRB, &PINB, &PORTB, 7},  // B7 13
+  {&DDRC, &PINC, &PORTC, 7},  // C7 14
+  {&DDRC, &PINC, &PORTC, 6},  // C6 15
+
+  {&DDRC, &PINC, &PORTC, 5},  // C5 16
+  {&DDRC, &PINC, &PORTC, 4},  // C4 17
+  {&DDRC, &PINC, &PORTC, 3},  // C3 18
+  {&DDRC, &PINC, &PORTC, 2},  // C2 19
+  {&DDRC, &PINC, &PORTC, 1},  // C1 20
+  {&DDRC, &PINC, &PORTC, 0},  // C0 21
+  {&DDRD, &PIND, &PORTD, 4},  // D4 22
+  {&DDRD, &PIND, &PORTD, 7},  // D7 23
+
+  {&DDRA, &PINA, &PORTA, 7},  // A0 24
+  {&DDRA, &PINA, &PORTA, 6},  // A1 25
+  {&DDRA, &PINA, &PORTA, 5},  // A2 26
+  {&DDRA, &PINA, &PORTA, 4},  // A3 27
+  {&DDRA, &PINA, &PORTA, 3},  // A4 28
+  {&DDRA, &PINA, &PORTA, 2},  // A5 29
+  {&DDRA, &PINA, &PORTA, 1},  // A6 30
+  {&DDRA, &PINA, &PORTA, 0}   // A7 31
+};
+
+#elif CALUNIUM_VARIANT == STRIPBOARD
+static const pin_map_t digitalPinMap[] = {
+  {&DDRD, &PIND, &PORTD, 0},  // D0  0
+  {&DDRD, &PIND, &PORTD, 1},  // D1  1
+  {&DDRD, &PIND, &PORTD, 2},  // D2  2
+  {&DDRD, &PIND, &PORTD, 3},  // D3  3
+  {&DDRB, &PINB, &PORTB, 0},  // B0  4
+  {&DDRB, &PINB, &PORTB, 1},  // B1  5
+  {&DDRB, &PINB, &PORTB, 2},  // B2  6
+  {&DDRB, &PINB, &PORTB, 3},  // B3  7
+
+  {&DDRD, &PIND, &PORTD, 6},  // D6  8
+  {&DDRD, &PIND, &PORTD, 5},  // D5  9
+  {&DDRB, &PINB, &PORTB, 4},  // B4 10
+  {&DDRB, &PINB, &PORTB, 5},  // B5 11
+  {&DDRB, &PINB, &PORTB, 6},  // B6 12
+  {&DDRB, &PINB, &PORTB, 7},  // B7 13
+  {&DDRC, &PINC, &PORTC, 7},  // C7 14
+  {&DDRC, &PINC, &PORTC, 6},  // C6 15
+
+  {&DDRC, &PINC, &PORTC, 5},  // C5 16
+  {&DDRC, &PINC, &PORTC, 4},  // C4 17
+  {&DDRC, &PINC, &PORTC, 3},  // C3 18
+  {&DDRC, &PINC, &PORTC, 2},  // C2 19
+  {&DDRC, &PINC, &PORTC, 1},  // C1 20
+  {&DDRC, &PINC, &PORTC, 0},  // C0 21
+  {&DDRD, &PIND, &PORTD, 4},  // D4 22
+  {&DDRD, &PIND, &PORTD, 7},  // D7 23
+
+  {&DDRA, &PINA, &PORTA, 1},  // A0 24
+  {&DDRA, &PINA, &PORTA, 0},  // A1 25
+  {&DDRA, &PINA, &PORTA, 2},  // A2 26
+  {&DDRA, &PINA, &PORTA, 3},  // A3 27
+  {&DDRA, &PINA, &PORTA, 4},  // A4 28
+  {&DDRA, &PINA, &PORTA, 5},  // A5 29
+  {&DDRA, &PINA, &PORTA, 6},  // A6 30
+  {&DDRA, &PINA, &PORTA, 7}   // A7 31
+};
+
+#else
+#error "Unknown Calunium variant"
+#endif
+
+//------------------------------------------------------------------------------
 #elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__)
 // Sanguino
 
